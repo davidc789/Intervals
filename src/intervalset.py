@@ -45,7 +45,11 @@ True
 
 import copy
 
-from src.interval import Interval
+from interval import Interval, SupportsRichComparison
+from sortedcontainers import SortedList
+from typing import Generic, TypeVar
+
+T = TypeVar("T", bound=Interval[SupportsRichComparison])
 
 
 class BaseIntervalSet(object):
@@ -85,10 +89,9 @@ class BaseIntervalSet(object):
         ...   Interval.between(l, u) for l, u in [(10, 20), (30, 40)])
         [10..20],[30..40]
         """
-        self.intervals = []
+        self.intervals = SortedList()
         for i in items:
             self._add(i)
-        self.intervals.sort()
 
     def __len__(self):
         """Returns the number of intervals contained in the object
@@ -130,10 +133,9 @@ class BaseIntervalSet(object):
         (...6]
         """
         if len(self.intervals) == 0:
-            rangeStr = "<Empty>"
+            return "<Empty>"
         else:
-            rangeStr = ",".join([str(r) for r in self.intervals])
-        return rangeStr
+            return ",".join(str(r) for r in self.intervals)
 
     def __getitem__(self, index):
         """Gets the interval at the given index
@@ -207,8 +209,7 @@ class BaseIntervalSet(object):
         """
         if len(self.intervals) > 0:
             return self.intervals[0].lower_bound
-        else:
-            raise IndexError("The BaseIntervalSet is empty")
+        raise IndexError("The BaseIntervalSet is empty")
 
     def upper_bound(self):
         """Returns the upper boundary of the BaseIntervalSet
@@ -224,8 +225,7 @@ class BaseIntervalSet(object):
         """
         if len(self.intervals) > 0:
             return self.intervals[-1].upper_bound
-        else:
-            raise IndexError("The BaseIntervalSet is empty")
+        raise IndexError("The BaseIntervalSet is empty")
 
     def lower_closed(self):
         """Returns a boolean telling whether the lower bound is closed or not
@@ -241,8 +241,7 @@ class BaseIntervalSet(object):
         """
         if len(self.intervals) > 0:
             return self.intervals[0].lower_closed
-        else:
-            raise IndexError("The BaseIntervalSet is empty")
+        raise IndexError("The BaseIntervalSet is empty")
 
     def upper_closed(self):
         """Returns a boolean telling whether the upper bound is closed or not
@@ -258,8 +257,7 @@ class BaseIntervalSet(object):
         """
         if len(self.intervals) > 0:
             return self.intervals[0].upper_closed
-        else:
-            raise IndexError("The BaseIntervalSet is empty")
+        raise IndexError("The BaseIntervalSet is empty")
 
     def bounds(self):
         """Returns an interval that encompasses the entire BaseIntervalSet
@@ -272,13 +270,13 @@ class BaseIntervalSet(object):
         (...)
         """
         if len(self.intervals) == 0:
-            result = Interval.none()
-        else:
-            result = Interval(
-                self.lower_bound(), self.upper_bound(),
-                lower_closed=self.lower_closed(),
-                upper_closed=self.upper_closed())
-        return result
+            return Interval.none()
+
+        return Interval(
+            self.lower_bound(), self.upper_bound(),
+            lower_closed=self.lower_closed(),
+            upper_closed=self.upper_closed()
+        )
 
     def issubset(self, other):
         """Tells if the given object is a subset of the object
@@ -1459,7 +1457,8 @@ class FrozenIntervalSet(BaseIntervalSet):
 
     >>> d = {
     ...   FrozenIntervalSet([3, 66]) : 52, 
-    ...   FrozenIntervalSet.less_than(3) : 3}
+    ...   FrozenIntervalSet.less_than(3) : 3
+    ... }
     """
 
     def __new__(cls, items=()):

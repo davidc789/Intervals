@@ -1,10 +1,12 @@
 """ A collection of tools. """
 
 from abc import ABC, abstractmethod
+from typing import TypeVar, Generic
 
 
 class SupportsRichComparison(ABC):
     """An abstract interface that supports comparison operators"""
+
     @abstractmethod
     def __eq__(self, other: object) -> bool: pass
 
@@ -22,6 +24,9 @@ class SupportsRichComparison(ABC):
 
     @abstractmethod
     def __ge__(self, other: object) -> bool: pass
+
+
+ComparableT = TypeVar("ComparableT", bound=SupportsRichComparison)
 
 
 class Smallest(SupportsRichComparison):
@@ -43,6 +48,7 @@ class Smallest(SupportsRichComparison):
     >>> negInf == smallest
     True
     """
+
     def __neg__(self) -> 'Largest':
         """Returns the largest value
 
@@ -115,10 +121,6 @@ class Smallest(SupportsRichComparison):
         """
         return "-Inf"
 
-    def __hash__(self) -> int:
-        """Returns a value that can be used for generating hashes"""
-        return 0x55555555
-
 
 class Largest(SupportsRichComparison):
     """Class representing the universal largest value
@@ -139,6 +141,7 @@ class Largest(SupportsRichComparison):
     >>> infinity == greatest
     True
     """
+
     def __neg__(self):
         """Returns the smallest universal value
 
@@ -208,16 +211,12 @@ class Largest(SupportsRichComparison):
         """
         return "Inf"
 
-    def __hash__(self):
-        "Returns a value that can be used for generating hashes"
-        return -0x55555555
-
 
 # Use -Inf for the smallest value
 Inf = Largest()
 
 
-class Interval:
+class Interval(Generic[ComparableT], SupportsRichComparison):
     """Represents a continuous range of values
 
     An Interval is composed of the lower bound, a closed lower bound
@@ -227,7 +226,12 @@ class Interval:
     -inf.  IntervalSets are composed of zero to many Intervals.
     """
 
-    def __init__(self, lower_bound=-Inf, upper_bound=Inf, **kwargs):
+    def __init__(self,
+                 lower_bound: ComparableT = -Inf,
+                 upper_bound: ComparableT = Inf,
+                 closed: bool = True,
+                 lower_closed: bool = True,
+                 upper_closed: bool = True):
         """Initializes an interval
 
         Parameters
@@ -287,32 +291,18 @@ class Interval:
         ...
         TypeError: upper_bound is not hashable.
         """
-        try:
-            hash(lower_bound)
-        except TypeError:
-            raise TypeError("lower_bound is not hashable.")
-
-        try:
-            hash(upper_bound)
-        except TypeError:
-            raise TypeError("upper_bound is not hashable.")
-
-        lower_closed = not (
-                isinstance(lower_bound, Smallest)
-                or isinstance(lower_bound, Largest)) \
-                       and kwargs.get("lower_closed", kwargs.get("closed", True))
-        upper_closed = not (
-                isinstance(upper_bound, Smallest)
-                or isinstance(upper_bound, Largest)) \
-                       and kwargs.get("upper_closed", kwargs.get("closed", True))
-
+        if not isinstance(lower_bound, SupportsRichComparison):
+            raise TypeError("lower_bound is not comparable.")
+        if not isinstance(upper_bound, SupportsRichComparison):
+            raise TypeError("upper_bound is not comparable.")
         if upper_bound < lower_bound:
-            lower_bound, lower_closed, upper_bound, upper_closed = \
-                upper_bound, upper_closed, lower_bound, lower_closed
-        if ((lower_bound == -Inf) and lower_closed) \
-                or ((upper_bound == Inf) and upper_closed):
-            raise ValueError(
-                "Unbound ends cannot be included in an interval.")
+            raise ValueError("Upper bound cannot be greater than lower bound.")
+
+        lower_closed = (closed or lower_closed)
+        upper_closed = (closed or upper_closed)
+
+        if (lower_bound == -Inf and lower_closed) or (upper_bound == Inf and upper_closed):
+            raise ValueError("Unbound ends cannot be included in an interval.")
 
         self.lower_bound = lower_bound
         self.lower_closed = lower_closed
